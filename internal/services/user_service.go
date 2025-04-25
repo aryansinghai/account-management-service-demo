@@ -161,26 +161,30 @@ func (s *UserService) DeleteUser(ctx context.Context, id uint) error {
 
 // ListUsers lists users with pagination
 func (s *UserService) ListUsers(ctx context.Context, page, perPage int) ([]models.User, int64, error) {
-	log := s.Logger.WithContext(ctx)
+    log := s.Logger.WithContext(ctx)
 
-	if page < 1 {
-		page = 1
-	}
+    // Normalize pagination parameters
+    page = max(page, 1)
+    perPage = max(perPage, 10)
+    
+    // Calculate offset
+    offset := (page - 1) * perPage
 
-	if perPage < 1 {
-		perPage = 10
-	}
+    // Fetch users from repository
+    users, total, err := s.UserRepo.List(ctx, offset, perPage)
+    if err != nil {
+        log.WithError(err).Error("Failed to list users")
+        return nil, 0, err
+    }
 
-	offset := (page - 1) * perPage
-
-	users, total, err := s.UserRepo.List(ctx, offset, perPage)
-	if err != nil {
-		log.WithError(err).Error("Failed to list users")
-		return nil, 0, err
-	}
-
-	log.WithField("total", total).Debug("Users listed successfully")
-	return users, total, nil
+    // Log success with metadata
+    log.WithFields(log.Fields{
+        "total":    total,
+        "page":     page,
+        "per_page": perPage,
+    }).Debug("Users listed successfully")
+    
+    return users, total, nil
 }
 
 // validateRegistration validates registration input
